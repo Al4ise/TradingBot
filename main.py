@@ -25,7 +25,7 @@ def main():
     #randomSteps(df)
 
     # train model
-    trainModel(ticker, df, 2000000)
+    trainModel(ticker, df, 200000)
 
     # eval
     evaluateModel(ticker, df)
@@ -74,9 +74,15 @@ def formatStockData(csvpath):
     return df
 
 def applyTechnicals(df):
-    df['SMA'] = TA.SMA(df, 7)
+    #df['SMA'] = TA.SMA(df, 7)
     #df['MACD'] = TA.MACD(df)
     df['RSI'] = TA.RSI(df)
+    #df['RSI'] = TA.
+
+    #df['MACD_signal'], df['MACD_histogram'] = TA.MACD(df)
+    #df['MACD_signal'] = df['MACD_signal'].astype(float)
+    #df['MACD_histogram'] = df['MACD_histogram'].astype(float)
+
     #df['VWAP'] = TA.VWAP(df)
 
     df.fillna(0, inplace=True)
@@ -87,7 +93,7 @@ def add_signals(env):
     start = env.frame_bound[0] - env.window_size
     end = env.frame_bound[1]
     prices = env.df.loc[:, 'Low'].to_numpy()[start:end]
-    signal_features = env.df.loc[:, ['Low', 'High', 'Open', 'Close', 'Volume', 'SMA', 'RSI']].to_numpy()[start:end]
+    signal_features = env.df.loc[:, ['Low', 'High', 'RSI']].to_numpy()[start:end]
     return prices, signal_features
 
 def trainModel(ticker, df, timesteps):
