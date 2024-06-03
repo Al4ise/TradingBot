@@ -1,10 +1,17 @@
 import os
 import gym_anytrading
+import torch
 from gym_anytrading.envs import StocksEnv
 import gymnasium as gym
 
 from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.vec_env import SubprocVecEnv
+from stable_baselines3.common.vec_env import DummyVecEnv
+
 from stable_baselines3 import A2C
+from stable_baselines3 import PPO
+from stable_baselines3 import TD3
+from stable_baselines3.common.sb2_compat.rmsprop_tf_like import RMSpropTFLike
 
 from finta import TA
 
@@ -14,6 +21,7 @@ from matplotlib import pyplot as plt
 
 import yfinance as yf
 from datetime import datetime
+import time
 
 def main():
     # Download and Format Data
@@ -25,7 +33,12 @@ def main():
     #randomSteps(df)
 
     # train model
-    trainModel(ticker, df, 200000)
+    start_time = time.time()
+    trainModel(ticker, df, 100000)
+    end_time = time.time()
+
+    execution_time = end_time - start_time
+    print(f"Execution time: {execution_time} seconds")
 
     # eval
     evaluateModel(ticker, df)
@@ -93,20 +106,23 @@ def add_signals(env):
     start = env.frame_bound[0] - env.window_size
     end = env.frame_bound[1]
     prices = env.df.loc[:, 'Low'].to_numpy()[start:end]
-    signal_features = env.df.loc[:, ['Low', 'High', 'RSI']].to_numpy()[start:end]
+    signal_features = env.df.loc[:, ['Low', 'High', 'Volume', 'Open', 'Close', 'RSI']].to_numpy()[start:end]
     return prices, signal_features
 
 def trainModel(ticker, df, timesteps):
-    env_maker = lambda: customEnv(df=df, frame_bound=(6000, 10000), window_size=10)
-    env = make_vec_env(env_maker)
+    env_maker = lambda: customEnv(df=df, frame_bound=(5, 10000), window_size=5)
+    env = make_vec_env(env_maker, vec_env_cls=SubprocVecEnv, n_envs=20)
 
-    model = A2C('MlpPolicy', env, verbose=1)
-    model.learn(total_timesteps=timesteps, )
+    #model = A2C('MlpPolicy', env, device='cuda', verbose=1)
+    model = A2C('MlpPolicy', env, device='cpu', verbose=1)
+    #model = A2C('MlpPolicy', env, device='cpu', verbose=1, policy_kwargs=dict(optimizer_class=RMSpropTFLike, optimizer_kwargs=dict(eps=1e-5)))
+
+    model.learn(total_timesteps=timesteps)
     model.save(f'models/{ticker}')
 
 def evaluateModel(ticker, df):
-    env_maker = lambda: customEnv(df=df, frame_bound=(10000, 11000), window_size=10, render_mode='human')
-    env = make_vec_env(env_maker)
+    env_maker = lambda: customEnv(df=df, frame_bound=(10000, 11000), window_size=5, render_mode='human')
+    env = make_vec_env(env_maker, vec_env_cls=SubprocVecEnv)
     model = A2C.load(f'models/{ticker}')
 
     obs = env.reset()
